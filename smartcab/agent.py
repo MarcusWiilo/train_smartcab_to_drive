@@ -11,6 +11,18 @@ class LearningAgent(Agent):
         self.color = 'red'  # override color
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
         # TODO: Initialize any additional variables here
+        self.state = {}
+        self.epsilon =.2
+        self.epsilon_annealing_rate = 0.1
+        self.episilon_reset_trials = 200
+        self.alpha = 0.6
+        self.gama = 0.4
+        self.q_table = {}
+        self.valid_actions = self.env.valid_actions
+        self.total_wins = 0
+        self.trial_infractions_record = []
+        self.trial_count = 0
+
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
@@ -45,7 +57,7 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.5, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0.2, display=True)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
     sim.run(n_trials=100)  # run for a specified number of trials
