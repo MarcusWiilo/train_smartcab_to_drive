@@ -2,7 +2,6 @@ import random
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
-import matplotlib.pyplot as plt
 
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
@@ -35,7 +34,6 @@ class LearningAgent(Agent):
             self.epsilon = .05
 
     def update(self, t):
-        # Gather inputs
         self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
@@ -52,6 +50,23 @@ class LearningAgent(Agent):
         # TODO: Learn policy based on state, action, reward
 
         print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
+
+    def performace_report(self, n_trials):
+
+        print '\n'+ 25*'*' + "FINAL REPORT:" + 25*'*'
+        print 'AMOUNT OF TIMES REACHED GOAL:', self.total_wins
+        print 'TRAFFIC INFRACTIONS RECORD:', self.infractions_record
+        print 'AMOUNT OF TIMES GOAL NOT REACHED', (n_trials - self.total_wins)
+        print 'TOTAL AMOUNT OF TRAFFIC INFRACTIONS:', sum(self.infractions_record)
+        print 25*'*'+'\n'
+
+    def save_states(self,reward):
+        if reward >= 5:
+            self.total_wins += 1
+        if reward <= 1:
+            self.trial_infractions += 1
+        else:
+            pass
 
     def set_current_state(self, inputs):
         return {"light": inputs["light"], "oncoming": inputs["oncoming"], "left": inputs["left"], "next_waypoint": self.next_waypoint
@@ -74,16 +89,38 @@ class LearningAgent(Agent):
                 opt_action = random.choice([opt_action, action])
         return opt_action
 
+    def max_q_value(self, state):
+        max_value = None
+        for action in self.valid_actions:
+            cur_value = self.q_value(state, action)
+            if max_value is None or cur_value > max_value:
+                max_value = cur_value
+        return max_value
+
     def q_value(self, state, action):
         q_key = self.q_key(state, action)
         if q_key in self.q_table:
             return self.q_table[q_key]
         return 0
 
+    def update_q_table(self, state, action, reward):
+        """Updates q_table from action taken and reward recieved"""
+
+        q_key = self.q_key(state, action)
+        inputs = self.env.sense(self)
+        self.next_waypoint = self.planner.next_waypoint()
+        new_state = self.set_current_state(inputs)
+
+        #update q_value in q_table according to learning formula
+        x = self.q_value(state, action)
+        V = reward + (self.gamma * self.max_q_value(new_state))
+        new_q_value = x + (self.alpha * (V - x))
+        self.q_table[q_key] = new_q_value
+
     def q_key(self, state, action):
         return "{}.{}.{}.{}.{}".format(state["light"], state["next_waypoint"], state["oncoming"], state["left"], action)
 
-def run():
+def run(num_trials):
     """Run the agent for a finite number of trials."""
 
     # Set up environment and agent
@@ -93,11 +130,14 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.0, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0.0, display=True)  
+    # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
-    sim.run(n_trials=100)  # run for a specified number of trials
+    sim.run(n_trials=num_trials)  # run for a specified number of trials
     # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
 
+    a.performace_report(num_trials)
+
 if __name__ == '__main__':
-    run()
+    run(100)
