@@ -2,6 +2,7 @@ import random
 from environment import Agent, Environment
 from planner import RoutePlanner
 from simulator import Simulator
+import matplotlib.pyplot as plt
 
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
@@ -13,20 +14,26 @@ class LearningAgent(Agent):
         # TODO: Initialize any additional variables here
         self.state = {}
         self.epsilon =.2
-        self.epsilon_annealing_rate = 0.1
+        self.epsilon_annealing_rate = .01
         self.episilon_reset_trials = 200
         self.alpha = 0.6
         self.gama = 0.4
         self.q_table = {}
         self.valid_actions = self.env.valid_actions
         self.total_wins = 0
-        self.trial_infractions_record = []
+        self.trial_infractions = 0
+        self.infractions_record = []
         self.trial_count = 0
 
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
         # TODO: Prepare for a new trip; reset any variables here, if required
+        self.infractions_record.append(self.trial_infractions)
+        self.trial_infractions = 0
+        self.trial_count += 1
+        if self.trial_count < self.episilon_reset_trials:
+            self.epsilon = .05
 
     def update(self, t):
         # Gather inputs
@@ -57,7 +64,7 @@ def run():
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.2, display=True)  # create simulator (uses pygame when display=True, if available)
+    sim = Simulator(e, update_delay=0.0, display=True)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
     sim.run(n_trials=100)  # run for a specified number of trials
