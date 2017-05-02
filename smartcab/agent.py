@@ -130,7 +130,7 @@ def run(num_trials):
     # NOTE: You can set enforce_deadline=False while debugging to allow longer trials
 
     # Now simulate it
-    sim = Simulator(e, update_delay=0.0, display=True)  
+    sim = Simulator(e, update_delay=0.5, display=True)  
     # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
