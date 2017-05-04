@@ -4,7 +4,6 @@ from planner import RoutePlanner
 from simulator import Simulator
 
 class LearningAgent(Agent):
-    """An agent that learns to drive in the smartcab world."""
 
     def __init__(self, env):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
@@ -52,6 +51,14 @@ class LearningAgent(Agent):
 
         print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
 
+    def save_states(self,reward):
+        if reward >= 5:
+            self.total_wins += 1
+        if reward <= 1:
+            self.trial_infractions += 1
+        else:
+            pass
+
     def set_current_state(self,inputs):
         return {"light": inputs["light"], "oncoming": inputs["oncoming"], "left": inputs["left"], "next_waypoint": self.next_waypoint}
 
@@ -72,6 +79,14 @@ class LearningAgent(Agent):
                 opt_action = random.choice([opt_action, action])
         return opt_action
 
+    def max_q_value(self, state):
+        max_value = None
+        for action in self.valid_actions:
+            cur_value = self.q_value(state, action)
+            if max_value is None or cur_value > max_value:
+                max_value = cur_value
+        return max_value
+
     def q_value(self, state, action):
         q_key = self.q_key(state, action)
         if q_key in self.q_table:
@@ -81,8 +96,27 @@ class LearningAgent(Agent):
     def q_key(self, state, action):
         return "{}.{}.{}.{}".format(state["light"], state["next_waypoint"], state["oncoming"], state["left"], action)
 
+    def update_q_table(self, state, action, reward):
+        q_key = self.q_key(state, action)
+        inputs = self.env.sense(self)
+        self.next_waypoint = self.planner.next_waypoint()
+        new_state = self.set_current_state(inputs)
 
-def run():
+        x = self.q_value(state, action)
+        V = reward + (self.gamma * self.max_q_value(new_state))
+        new_q_value = x + (self.alpha * (V - x))
+        self.q_table[q_key] = new_q_value
+
+    def performance_report(self, n_trials):
+
+        print '\n'+ 25*'*' + "REPORTE FINAL:" + 25*'*'
+        print 'QUANTIDADE DE TEMPO ALCANCADO:', self.total_wins
+        print 'REGISTRO DE INFRACOES DE TRANSITO:', self.infractions_record
+        print 'QUANTIDADE DE VEZES QUE NAO CHEGOU A TEMPO', (n_trials - self.total_wins)
+        print 'TOTAL DE REGISTRO DE INFRACOES:', sum(self.infractions_record)
+        print 25*'*'+'\n'
+
+def run(num_trials):
     """Run the agent for a finite number of trials."""
 
     # Set up environment and agent
@@ -95,9 +129,10 @@ def run():
     sim = Simulator(e, update_delay=0.0, display=True)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
-    sim.run(n_trials=100)  # run for a specified number of trials
+    sim.run(n_trials=num_trials)  # run for a specified number of trials
     # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
 
+    a.performance_report(num_trials)
 
 if __name__ == '__main__':
-    run()
+    run(100)
