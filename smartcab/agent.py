@@ -4,6 +4,7 @@ from planner import RoutePlanner
 from simulator import Simulator
 
 class LearningAgent(Agent):
+    """An agent that learns to drive in the smartcab world."""
 
     def __init__(self, env):
         super(LearningAgent, self).__init__(env)  # sets self.env = env, state = None, next_waypoint = None, and a default color
@@ -11,17 +12,18 @@ class LearningAgent(Agent):
         self.planner = RoutePlanner(self.env, self)  # simple route planner to get next_waypoint
         # TODO: Initialize any additional variables here
         self.state = {}
-        self.epsilon_annealing_rate = .01
-        self.episilon_reset_trials = 200
-        self.epsilon =.2
-        self.alpha = 0.6
-        self.gama = 0.4
-        self.q_table = {}
-        self.valid_actions = self.env.valid_actions
+        self.learning_rate = 0.4
+        self.exploration_rate = 0.1
+        self.exploration_degradation_rate = 0.001
+        self.discount_rate = 0.2
+        self.q_values = {}
+        self.valid_actions = [None, 'forward', 'left', 'right']
         self.total_wins = 0
+        self.trial_infractions = 0
         self.infractions_record = []
         self.trial_count = 0
-        self.trial_infractions = 0
+        self.epsilon_annealing_rate = .01
+        self.episilon_reset_trials = 200
 
     def reset(self, destination=None):
         self.planner.route_to(destination)
@@ -38,18 +40,17 @@ class LearningAgent(Agent):
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
 
-        # TODO: Update state
-        self.state = self.set_current_state(inputs)
-        
+        # TODO: Update State
+        self.state = self.build_state(inputs)
+
         # TODO: Select action according to your policy
-        action =self.choose_action(self.state)
+        action = self.choose_action_from_policy(self.state)
 
         # Execute action and get reward
         reward = self.env.act(self, action)
 
         # TODO: Learn policy based on state, action, reward
-
-        print "LearningAgent.update(): deadline = {}, inputs = {}, action = {}, reward = {}".format(deadline, inputs, action, reward)  # [debug]
+        self.update_q_value(self.state, action, reward)
 
     def save_states(self,reward):
         if reward >= 5:
@@ -59,64 +60,57 @@ class LearningAgent(Agent):
         else:
             pass
 
-    def set_current_state(self,inputs):
-        return {"light": inputs["light"], "oncoming": inputs["oncoming"], "left": inputs["left"], "next_waypoint": self.next_waypoint}
+    def build_state(self, inputs):
+      return {
+        "light": inputs["light"],
+        "oncoming": inputs["oncoming"],
+        "left": inputs["left"],
+        "direction": self.next_waypoint
+      }
 
-    def choose_action(self, state):
-        if random.random() < self.epsilon:
-            self.epsilon -= self.epsilon_annealing_rate
+    def choose_action_from_policy(self, state):
+        if random.random() < self.exploration_rate:
+            self.exploration_rate -= self.exploration_degradation_rate
             return random.choice(self.valid_actions)
-
-        opt_action = self.valid_actions[0]
-        opt_value = 0
-
+        best_action = self.valid_actions[0]
+        best_value = 0
         for action in self.valid_actions:
-            cur_value = self.q_value(state, action)
-            if cur_value > opt_value:
-                opt_action = action
-                opt_value = cur_value
-            elif cur_value == opt_value:
-                opt_action = random.choice([opt_action, action])
-        return opt_action
+            cur_value = self.q_value_for(state, action)
+            if cur_value > best_value:
+                best_action = action
+                best_value = cur_value
+            elif cur_value == best_value:
+                best_action = random.choice([best_action, action])
+        return best_action
 
     def max_q_value(self, state):
         max_value = None
         for action in self.valid_actions:
-            cur_value = self.q_value(state, action)
+            cur_value = self.q_value_for(state, action)
             if max_value is None or cur_value > max_value:
                 max_value = cur_value
         return max_value
 
-    def q_value(self, state, action):
-        q_key = self.q_key(state, action)
-        if q_key in self.q_table:
-            return self.q_table[q_key]
+    def q_value_for(self, state, action):
+        q_key = self.q_key_for(state, action)
+        if q_key in self.q_values:
+            return self.q_values[q_key]
         return 0
 
-    def q_key(self, state, action):
-        return "{}.{}.{}.{}".format(state["light"], state["next_waypoint"], state["oncoming"], state["left"], action)
-
-    def update_q_table(self, state, action, reward):
-        q_key = self.q_key(state, action)
+    def update_q_value(self, state, action, reward):
+        q_key = self.q_key_for(state, action)
+        cur_value = self.q_value_for(state, action)
         inputs = self.env.sense(self)
         self.next_waypoint = self.planner.next_waypoint()
-        new_state = self.set_current_state(inputs)
+        new_state = self.build_state(inputs)
+        learned_value = reward + (self.discount_rate * self.max_q_value(new_state))
+        new_q_value = cur_value + (self.learning_rate * (learned_value - cur_value))
+        self.q_values[q_key] = new_q_value
 
-        x = self.q_value(state, action)
-        V = reward + (self.gamma * self.max_q_value(new_state))
-        new_q_value = x + (self.alpha * (V - x))
-        self.q_table[q_key] = new_q_value
+    def q_key_for(self, state, action):
+        return "{}|{}|{}|{}|{}".format(state["light"], state["direction"], state["oncoming"], state["left"], action)
 
-    def performance_report(self, n_trials):
-
-        print '\n'+ 25*'*' + "REPORTE FINAL:" + 25*'*'
-        print 'QUANTIDADE DE TEMPO ALCANCADO:', self.total_wins
-        print 'REGISTRO DE INFRACOES DE TRANSITO:', self.infractions_record
-        print 'QUANTIDADE DE VEZES QUE NAO CHEGOU A TEMPO', (n_trials - self.total_wins)
-        print 'TOTAL DE REGISTRO DE INFRACOES:', sum(self.infractions_record)
-        print 25*'*'+'\n'
-
-def run(num_trials):
+def run():
     """Run the agent for a finite number of trials."""
 
     # Set up environment and agent
@@ -129,10 +123,8 @@ def run(num_trials):
     sim = Simulator(e, update_delay=0.0, display=True)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
-    sim.run(n_trials=num_trials)  # run for a specified number of trials
+    sim.run(n_trials=200)  # run for a specified number of trials
     # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
 
-    a.performance_report(num_trials)
-
 if __name__ == '__main__':
-    run(100)
+    run()
