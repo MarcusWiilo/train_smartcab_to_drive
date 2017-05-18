@@ -1,7 +1,7 @@
 import random
 from environment import Agent, Environment
-from planner import RoutePlanner
 from simulator import Simulator
+from planner import RoutePlanner
 
 class LearningAgent(Agent):
     """An agent that learns to drive in the smartcab world."""
@@ -35,7 +35,6 @@ class LearningAgent(Agent):
             self.epsilon = .05
 
     def update(self, t):
-        # Gather inputs
         self.next_waypoint = self.planner.next_waypoint()  # from route planner, also displayed by simulator
         inputs = self.env.sense(self)
         deadline = self.env.get_deadline(self)
@@ -83,20 +82,6 @@ class LearningAgent(Agent):
                 best_action = random.choice([best_action, action])
         return best_action
 
-    def max_q_value(self, state):
-        max_value = None
-        for action in self.valid_actions:
-            cur_value = self.q_value_for(state, action)
-            if max_value is None or cur_value > max_value:
-                max_value = cur_value
-        return max_value
-
-    def q_value_for(self, state, action):
-        q_key = self.q_key_for(state, action)
-        if q_key in self.q_values:
-            return self.q_values[q_key]
-        return 0
-
     def update_q_value(self, state, action, reward):
         q_key = self.q_key_for(state, action)
         cur_value = self.q_value_for(state, action)
@@ -106,6 +91,20 @@ class LearningAgent(Agent):
         learned_value = reward + (self.discount_rate * self.max_q_value(new_state))
         new_q_value = cur_value + (self.learning_rate * (learned_value - cur_value))
         self.q_values[q_key] = new_q_value
+
+    def q_value_for(self, state, action):
+        q_key = self.q_key_for(state, action)
+        if q_key in self.q_values:
+            return self.q_values[q_key]
+        return 0
+
+    def max_q_value(self, state):
+        max_value = None
+        for action in self.valid_actions:
+            cur_value = self.q_value_for(state, action)
+            if max_value is None or cur_value > max_value:
+                max_value = cur_value
+        return max_value
 
     def q_key_for(self, state, action):
         return "{}|{}|{}|{}|{}".format(state["light"], state["direction"], state["oncoming"], state["left"], action)
@@ -123,7 +122,7 @@ def run():
     sim = Simulator(e, update_delay=0.0, display=True)  # create simulator (uses pygame when display=True, if available)
     # NOTE: To speed up simulation, reduce update_delay and/or set display=False
 
-    sim.run(n_trials=200)  # run for a specified number of trials
+    sim.run(n_trials=100)  # run for a specified number of trials
     # NOTE: To quit midway, press Esc or close pygame window, or hit Ctrl+C on the command-line
 
 if __name__ == '__main__':
