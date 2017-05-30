@@ -82,16 +82,6 @@ class LearningAgent(Agent):
                 best_action = random.choice([best_action, action])
         return best_action
 
-    def update_q_value(self, state, action, reward):
-        q_key = self.q_key_for(state, action)
-        cur_value = self.q_value_for(state, action)
-        inputs = self.env.sense(self)
-        self.next_waypoint = self.planner.next_waypoint()
-        new_state = self.build_state(inputs)
-        learned_value = reward + (self.discount_rate * self.max_q_value(new_state))
-        new_q_value = cur_value + (self.learning_rate * (learned_value - cur_value))
-        self.q_values[q_key] = new_q_value
-
     def q_value_for(self, state, action):
         q_key = self.q_key_for(state, action)
         if q_key in self.q_values:
@@ -108,6 +98,16 @@ class LearningAgent(Agent):
 
     def q_key_for(self, state, action):
         return "{}|{}|{}|{}|{}".format(state["light"], state["direction"], state["oncoming"], state["left"], action)
+
+    def update_q_value(self, state, action, reward):
+        q_key = self.q_key_for(state, action)
+        cur_value = self.q_value_for(state, action)
+        inputs = self.env.sense(self)
+        self.next_waypoint = self.planner.next_waypoint()
+        new_state = self.build_state(inputs)
+        learned_value = reward + (self.discount_rate * self.max_q_value(new_state))
+        new_q_value = cur_value + (self.learning_rate * (learned_value - cur_value))
+        self.q_values[q_key] = new_q_value
 
 def run():
     """Run the agent for a finite number of trials."""
